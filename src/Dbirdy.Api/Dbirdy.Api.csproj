@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Dbirdy.Application\Dbirdy.Application.csproj" />
+    <ProjectReference Include="..\Dbirdy.Infrastructure\Dbirdy.Infrastructure.csproj" />
+    <ProjectReference Include="..\Dbirdy.GameEngine\Dbirdy.GameEngine.csproj" />
+  </ItemGroup>
+
+</Project>
