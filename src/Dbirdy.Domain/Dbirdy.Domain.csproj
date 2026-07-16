@@ -7,10 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Cmmon\" />
+    <Folder Include="Common\" />
     <Folder Include="Entities\" />
     <Folder Include="Events\" />
     <Folder Include="Exceptions\" />
+    <Folder Include="Interfaces\" />
+    <Folder Include="Primitives\" />
     <Folder Include="ValueObjects\" />
     <Folder Include="Enums\" />
   </ItemGroup>
