@@ -1,3 +1,4 @@
+
 import { useState } from 'react'
 import './App.css'
 
@@ -8,8 +9,13 @@ interface Player {
   isReady: boolean
 }
 
+interface Board {
+  cells: number[]
+}
+
 interface Game {
   id: string
+  board: Board
   playerO: Player
   playerX: Player
   currentTurn: number
@@ -26,12 +32,20 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const mySymbol =
+    game && playerId
+      ? game.playerO.id === playerId
+        ? 'O'
+        : game.playerX.id === playerId
+          ? 'X'
+          : null
+      : null
+
   const createGame = async () => {
     setLoading(true)
     setError(null)
 
     try {
-      // Create a new game room
       const createResponse = await fetch(API_URL, {
         method: 'POST',
       })
@@ -41,21 +55,14 @@ function App() {
       }
 
       const newGame: Game = await createResponse.json()
-
-      // Generate an ID for the first player
       const newPlayerId = crypto.randomUUID()
 
-      // Join the newly created room
       const joinResponse = await fetch(
         `${API_URL}/${newGame.id}/players`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            playerId: newPlayerId,
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ playerId: newPlayerId }),
         },
       )
 
@@ -68,11 +75,7 @@ function App() {
       setGame(joinedGame)
       setPlayerId(newPlayerId)
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Something went wrong.',
-      )
+      setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
       setLoading(false)
     }
@@ -94,12 +97,8 @@ function App() {
 
       const response = await fetch(`${API_URL}/${id}/players`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          playerId: newPlayerId,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId: newPlayerId }),
       })
 
       if (!response.ok) {
@@ -107,8 +106,7 @@ function App() {
           throw new Error('Game not found.')
         }
 
-        const message = await response.text()
-        throw new Error(message || 'Could not join game.')
+        throw new Error((await response.text()) || 'Could not join game.')
       }
 
       const joinedGame: Game = await response.json()
@@ -116,90 +114,36 @@ function App() {
       setGame(joinedGame)
       setPlayerId(newPlayerId)
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Something went wrong.',
-      )
+      setError(err instanceof Error ? err.message : 'Something went wrong.')
     } finally {
       setLoading(false)
     }
   }
-const setReady = async () => {
-  if (!game || !playerId) return
 
-  setLoading(true)
-  setError(null)
+  const setReady = async () => {
+    if (!game || !playerId) return
 
-  try {
-    const response = await fetch(
-      `${API_URL}/${game.id}/ready`,
-      {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${API_URL}/${game.id}/ready`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          playerId,
-        }),
-      },
-    )
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId }),
+      })
 
-    if (!response.ok) {
-      throw new Error('Could not set player ready.')
+      if (!response.ok) {
+        throw new Error('Could not set player ready.')
+      }
+
+      setGame(await response.json())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong.')
+    } finally {
+      setLoading(false)
     }
-
-    const updatedGame: Game = await response.json()
-
-    setGame(updatedGame)
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : 'Something went wrong.',
-    )
-  } finally {
-    setLoading(false)
   }
-}
-
-const setReady = async () => {
-  if (!game || !playerId) return
-
-  setLoading(true)
-  setError(null)
-
-  try {
-    const response = await fetch(
-      `${API_URL}/${game.id}/ready`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          playerId,
-        }),
-      },
-    )
-
-    if (!response.ok) {
-      throw new Error('Could not set player ready.')
-    }
-
-    const updatedGame: Game = await response.json()
-
-    setGame(updatedGame)
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : 'Something went wrong.',
-    )
-  } finally {
-    setLoading(false)
-  }
-}
 
   const refreshGame = async () => {
     if (!game) return
@@ -211,22 +155,58 @@ const setReady = async () => {
         throw new Error('Could not refresh game.')
       }
 
-      const updatedGame: Game = await response.json()
-      setGame(updatedGame)
+      setGame(await response.json())
       setError(null)
     } catch {
       setError('Could not refresh game.')
     }
   }
 
-  const mySymbol =
-    game && playerId
-      ? game.playerO.id === playerId
-        ? 'O'
-        : game.playerX.id === playerId
-          ? 'X'
-          : null
-      : null
+  const makeMove = async (position: number) => {
+    if (!game || !mySymbol || loading) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`${API_URL}/${game.id}/moves`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position }),
+      })
+
+      if (!response.ok) {
+        throw new Error((await response.text()) || 'Invalid move.')
+      }
+
+      setGame(await response.json())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not make move.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const isPlayerReady =
+    mySymbol === 'O'
+      ? game?.playerO.isReady
+      : mySymbol === 'X'
+        ? game?.playerX.isReady
+        : false
+
+  const isMyTurn =
+    game !== null &&
+    ((mySymbol === 'O' && game.currentTurn === 0) ||
+      (mySymbol === 'X' && game.currentTurn === 1))
+
+  const isPlayerJoined = (player: Player) =>
+    player.id !== '00000000-0000-0000-0000-000000000000'
+
+  const getCellSymbol = (cell: number) => {
+    if (cell === 1) return 'O'
+    if (cell === 2) return 'X'
+    return ''
+  }
 
   return (
     <main className="app">
@@ -259,9 +239,7 @@ const setReady = async () => {
               id="gameId"
               type="text"
               value={gameIdInput}
-              onChange={(event) =>
-                setGameIdInput(event.target.value)
-              }
+              onChange={(event) => setGameIdInput(event.target.value)}
               placeholder="Enter Game ID"
             />
 
@@ -291,55 +269,88 @@ const setReady = async () => {
             <div className="player-card">
               <span className="symbol">O</span>
               <strong>Player O</strong>
-             <span>
-  {!game.playerO.id ||
-  game.playerO.id === '00000000-0000-0000-0000-000000000000'
-    ? 'Waiting'
-    : game.playerO.isReady
-      ? 'Ready'
-      : 'Joined'}
-</span>
+              <span>
+                {isPlayerJoined(game.playerO)
+                  ? game.playerO.isReady ? 'Ready' : 'Joined'
+                  : 'Waiting'}
+              </span>
+              <span>Score: {game.playerO.score}</span>
             </div>
 
             <div className="player-card">
               <span className="symbol">X</span>
               <strong>Player X</strong>
-           <span>
-  {!game.playerX.id ||
-  game.playerX.id === '00000000-0000-0000-0000-000000000000'
-    ? 'Waiting'
-    : game.playerX.isReady
-      ? 'Ready'
-      : 'Joined'}
-</span>
+              <span>
+                {isPlayerJoined(game.playerX)
+                  ? game.playerX.isReady ? 'Ready' : 'Joined'
+                  : 'Waiting'}
+              </span>
+              <span>Score: {game.playerX.score}</span>
             </div>
           </div>
-{game.state === 2 && (
-  <p className="your-symbol">
-    Game Started! Player {game.currentTurn === 0 ? 'O' : 'X'} goes first.
-  </p>
-)}
-          <button
-            onClick={refreshGame}
-            className="secondary-button"
-          >
-{game.state === 1 && (
-  <button
-    onClick={setReady}
-    disabled={loading || (mySymbol === 'O'
-      ? game.playerO.isReady
-      : game.playerX.isReady)}
-    className="primary-button"
-  >
-    {mySymbol === 'O'
-      ? game.playerO.isReady
-        ? 'You are Ready'
-        : 'Ready'
-      : game.playerX.isReady
-        ? 'You are Ready'
-        : 'Ready'}
-  </button>
-)}
+
+          {game.state === 1 && (
+            <div className="ready-section">
+              <p>Both players must be ready to start.</p>
+
+              <button
+                onClick={setReady}
+                disabled={loading || isPlayerReady || !mySymbol}
+                className="primary-button"
+              >
+                {isPlayerReady ? 'You are Ready' : 'Ready'}
+              </button>
+            </div>
+          )}
+
+          {game.state === 2 && (
+            <>
+              <div className="round-info">
+                <h2>Round {game.currentRound} / 3</h2>
+                <p>
+                  {isMyTurn
+                    ? 'Your turn!'
+                    : `Player ${game.currentTurn === 0 ? 'O' : 'X'}'s turn`}
+                </p>
+              </div>
+
+              <div className="board">
+                {game.board.cells.map((cell, index) => (
+                  <button
+                    key={index}
+                    className={`board-cell ${getCellSymbol(cell)}`}
+                    onClick={() => makeMove(index)}
+                    disabled={
+                      loading ||
+                      cell !== 0 ||
+                      !isMyTurn ||
+                      game.state !== 2
+                    }
+                  >
+                    {getCellSymbol(cell)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {game.state === 3 && (
+            <div className="round-info">
+              <h2>Round Finished!</h2>
+              <p>Refresh the game to see the latest result.</p>
+            </div>
+          )}
+
+          {game.state === 4 && (
+            <div className="round-info">
+              <h2>Match Finished!</h2>
+              <p>
+                Winner: Player {game.playerO.score > game.playerX.score ? 'O' : 'X'}
+              </p>
+            </div>
+          )}
+
+          <button onClick={refreshGame} className="secondary-button">
             Refresh Game
           </button>
 

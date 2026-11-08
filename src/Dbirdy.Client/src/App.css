@@ -1,262 +1,57 @@
-import { useState } from 'react'
-import './App.css'
 
-interface Player {
-  id: string
-  symbol: number
-  score: number
-  isReady: boolean
+/* Game board */
+.round-info {
+    margin: 24px 0 16px;
+    text-align: center;
 }
 
-interface Game {
-  id: string
-  playerO: Player
-  playerX: Player
-  currentTurn: number
-  currentRound: number
-  state: number
+    .round-info h2 {
+        margin-bottom: 8px;
+    }
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: 100%;
+    max-width: 330px;
+    margin: 24px auto;
 }
 
-const API_URL = 'http://localhost:5032/api/Game'
-
-function App() {
-  const [game, setGame] = useState<Game | null>(null)
-  const [gameIdInput, setGameIdInput] = useState('')
-  const [playerId, setPlayerId] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const createGame = async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      // Create a new game room
-      const createResponse = await fetch(API_URL, {
-        method: 'POST',
-      })
-
-      if (!createResponse.ok) {
-        throw new Error('Could not create game.')
-      }
-
-      const newGame: Game = await createResponse.json()
-
-      // Generate an ID for the first player
-      const newPlayerId = crypto.randomUUID()
-
-      // Join the newly created room
-      const joinResponse = await fetch(
-        `${API_URL}/${newGame.id}/players`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            playerId: newPlayerId,
-          }),
-        },
-      )
-
-      if (!joinResponse.ok) {
-        throw new Error('Game created, but could not join it.')
-      }
-
-      const joinedGame: Game = await joinResponse.json()
-
-      setGame(joinedGame)
-      setPlayerId(newPlayerId)
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Something went wrong.',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const joinGame = async () => {
-    const id = gameIdInput.trim()
-
-    if (!id) {
-      setError('Please enter a Game ID.')
-      return
-    }
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const newPlayerId = crypto.randomUUID()
-
-      const response = await fetch(`${API_URL}/${id}/players`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          playerId: newPlayerId,
-        }),
-      })
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Game not found.')
-        }
-
-        const message = await response.text()
-        throw new Error(message || 'Could not join game.')
-      }
-
-      const joinedGame: Game = await response.json()
-
-      setGame(joinedGame)
-      setPlayerId(newPlayerId)
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Something went wrong.',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const refreshGame = async () => {
-    if (!game) return
-
-    try {
-      const response = await fetch(`${API_URL}/${game.id}`)
-
-      if (!response.ok) {
-        throw new Error('Could not refresh game.')
-      }
-
-      const updatedGame: Game = await response.json()
-      setGame(updatedGame)
-      setError(null)
-    } catch {
-      setError('Could not refresh game.')
-    }
-  }
-
-  const mySymbol =
-    game && playerId
-      ? game.playerO.id === playerId
-        ? 'O'
-        : game.playerX.id === playerId
-          ? 'X'
-          : null
-      : null
-
-  return (
-    <main className="app">
-      <h1>Dbirdy</h1>
-      <p className="subtitle">A simple game for two players</p>
-
-      {!game ? (
-        <section className="room-panel">
-          <button
-            onClick={createGame}
-            disabled={loading}
-            className="primary-button"
-          >
-            {loading ? 'Please wait...' : 'Create New Game'}
-          </button>
-
-          <div className="separator">
-            <span>OR</span>
-          </div>
-
-          <form
-            onSubmit={(event) => {
-              event.preventDefault()
-              joinGame()
-            }}
-          >
-            <label htmlFor="gameId">Join Existing Game</label>
-
-            <input
-              id="gameId"
-              type="text"
-              value={gameIdInput}
-              onChange={(event) =>
-                setGameIdInput(event.target.value)
-              }
-              placeholder="Enter Game ID"
-            />
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="secondary-button"
-            >
-              {loading ? 'Joining...' : 'Join Game'}
-            </button>
-          </form>
-        </section>
-      ) : (
-        <section className="game-panel">
-          <h2>Game Room</h2>
-
-          <p className="game-id">
-            <span>Game ID</span>
-            <strong>{game.id}</strong>
-          </p>
-
-          <p className="your-symbol">
-            You are Player {mySymbol ?? 'Unknown'}
-          </p>
-
-          <div className="players">
-            <div className="player-card">
-              <span className="symbol">O</span>
-              <strong>Player O</strong>
-              <span>
-                {game.playerO.id !== '00000000-0000-0000-0000-000000000000'
-                  ? 'Joined'
-                  : 'Waiting'}
-              </span>
-            </div>
-
-            <div className="player-card">
-              <span className="symbol">X</span>
-              <strong>Player X</strong>
-              <span>
-                {game.playerX.id !== '00000000-0000-0000-0000-000000000000'
-                  ? 'Joined'
-                  : 'Waiting'}
-              </span>
-            </div>
-          </div>
-
-          <button
-            onClick={refreshGame}
-            className="secondary-button"
-          >
-            Refresh Game
-          </button>
-
-          <button
-            onClick={() => {
-              setGame(null)
-              setPlayerId(null)
-              setError(null)
-            }}
-            className="text-button"
-          >
-            Back to Menu
-          </button>
-        </section>
-      )}
-
-      {error && <p className="error">{error}</p>}
-    </main>
-  )
+.board-cell {
+    aspect-ratio: 1;
+    border: 1px solid #454545;
+    border-radius: 12px;
+    background: #292929;
+    color: white;
+    font-size: 3rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
 }
 
-export default App
+    .board-cell:disabled {
+        cursor: default;
+    }
+
+    .board-cell:not(:disabled):hover {
+        background: #414141;
+        transform: scale(1.03);
+    }
+
+    .board-cell.O {
+        color: #66b3ff;
+    }
+
+    .board-cell.X {
+        color: #ff8b8b;
+    }
+
+.ready-section {
+    margin: 24px 0;
+    text-align: center;
+}
+
+    .ready-section p {
+        margin-bottom: 14px;
+    }
